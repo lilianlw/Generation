@@ -4,7 +4,7 @@ from tensorflow.python.ops import rnn
 
 class MatchingEncoder(object):
     def __init__(self, placeholders, options, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None):
-    ### placeholders指传入的ModelGraph类本身self
+
         self.options = options
 
         self.word_vocab = word_vocab
@@ -31,11 +31,6 @@ class MatchingEncoder(object):
         if options.with_NER:
             self.in_question_NERs = placeholders.in_question_NERs #tf.placeholder(tf.int32, [None, None]) # [batch_size, question_len]
             self.in_passage_NERs = placeholders.in_passage_NERs #tf.placeholder(tf.int32, [None, None]) # [batch_size, passage_len]
-        
-        ### 
-        if options.with_template:
-            self.template_words = placeholders.template_words
-            self.template_lengths = placeholders.template_lengths
 
     def encode(self, is_training=True):
         options = self.options

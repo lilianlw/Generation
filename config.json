@@ -3,10 +3,10 @@
     "test_path": "data/dev_sent_pre.json",
     "word_vec_path": "data/vectors_prev.txt.st",
     "suffix": "mpqg_1",
+    "gpu":"1",
     "model_dir": "logs",
     "isLower": true,
     "two_sent_inputs": true,
-    "gpu":"2,4,5",
 
     "pointer_gen": true,
     "use_coverage": true,
@@ -19,7 +19,7 @@
     "min_answer_len": 0,
     "max_answer_len": 50,
     "batch_size": 50,
-    "learning_rate": 0.005,
+    "learning_rate": 0.001,
     "lambda_l2": 0.001,
     "dropout_rate": 0.1,
     "max_epochs": 15,
@@ -66,6 +66,7 @@
     "with_aggregation_highway": true,
 
     "with_template": true,
+    "two_sent_withtemplate_inputs": true,
 
     "with_word": true,
     "with_char": false,
@@ -80,7 +81,6 @@
     "fix_word_vec": true,
     "max_passage_len": 600,
     "max_char_per_word": 10,
-    "template_dim":300,
 
     "gen_hidden_size": 100,
     "num_softmax_samples": 100,

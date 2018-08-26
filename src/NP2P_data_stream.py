@@ -190,24 +190,32 @@ class QAQuestionBatch(object):
 
         self.has_sent3 = False
         if instances[0][2] is not None: self.has_sent3 = True
-
-        self.has_template = False ###
-        if hasattr(instances[0][1], 'question_template') and instances[0][1].question_template != "" : self.has_template = True ###
+        ### uuuzizhang
+        self.has_template = False
+        if hasattr(instances[0][1], 'question_template') and instances[0][1].question_template != "" : self.has_template = True
+        ### uuuzizhang
 
         # create length
         self.sent1_length = [] # [batch_size]
         self.sent2_length = [] # [batch_size]
-        if self.has_sent3: self.sent3_length = [] # [batch_size]
-        if self.has_template and options.with_template : self.template_length = [] ###
+        if self.has_sent3 : self.sent3_length = [] # [batch_size]
+        ### uuuzizhang
+        if self.has_template and options.with_template : self.template_length = [] 
+        ### uuuzizhang
         for (sent1, sent2, sent3) in instances:
             self.sent1_length.append(sent1.get_length())
             self.sent2_length.append(sent2.get_length())
-            if self.has_template and options.with_template : self.template_length.append(sent2.get_template_length()) ###
-            if self.has_sent3: self.sent3_length.append(sent3.get_length())
+            ### uuuzizhang
+            if self.has_template and options.with_template : self.template_length.append(sent2.get_template_length())
+            ### uuuzizhang
+            if self.has_sent3 : self.sent3_length.append(sent3.get_length())
         self.sent1_length = np.array(self.sent1_length, dtype=np.int32)
         self.sent2_length = np.array(self.sent2_length, dtype=np.int32)
-        if self.has_template and options.with_template : self.template_length = np.array(self.template_length, dtype=np.int32) ###
-        if self.has_sent3: self.sent3_length = np.array(self.sent3_length, dtype=np.int32)
+        ### uuuzizhang
+        if self.has_template and options.with_template : self.template_length = np.array(self.template_length, dtype=np.int32)
+        ### uuuzizhang
+        if self.has_sent3 : self.sent3_length = np.array(self.sent3_length, dtype=np.int32)
+
 
         # create word representation
         start_id = word_vocab.getIndex('<s>')
@@ -216,21 +224,27 @@ class QAQuestionBatch(object):
             self.sent1_word = [] # [batch_size, sent1_len]
             self.sent2_word = [] # [batch_size, sent2_len]
             self.sent2_input_word = []
-            if self.has_template and options.with_template : self.template_word = [] ###
+            ### uuuzizhang
+            if self.has_template and options.with_template : self.question_template = []
+            ### uuuzizhang
             if self.has_sent3: self.sent3_word = [] # [batch_size, sent3_len]
             for (sent1, sent2, sent3) in instances:
                 self.sent1_word.append(sent1.word_idx_seq)
                 self.sent2_word.append(sent2.word_idx_seq)
                 self.sent2_input_word.append([start_id]+sent2.word_idx_seq[:-1])
-                if self.has_template and options.with_template : self.template_word.append(sent2.template_idx_seq) ###
+                ### uuuzizhang
+                if self.has_template and options.with_template : self.question_template.append(sent2.template_idx_seq)
+                ### uuuzizhang
                 if self.has_sent3: self.sent3_word.append(sent3.word_idx_seq)
             self.sent1_word = padding_utils.pad_2d_vals_no_size(self.sent1_word)
             self.sent2_word = padding_utils.pad_2d_vals(self.sent2_word, len(self.sent2_word), options.max_answer_len)
             self.sent2_input_word = padding_utils.pad_2d_vals(self.sent2_input_word, len(self.sent2_input_word), options.max_answer_len)
-            if self.has_template and options.with_template : self.template_word = padding_utils.pad_2d_vals(self.template_word, len(self.template_word), options.max_answer_len) ###
+            ### uuuzizhang
+            if self.has_template and options.with_template : self.question_template = padding_utils.pad_2d_vals(self.question_template, len(self.question_template), options.max_answer_len)
+            ### uuuzizhang
             if self.has_sent3: self.sent3_word = padding_utils.pad_2d_vals_no_size(self.sent3_word)
 
-            self.in_answer_words = self.sent2_word ###question
+            self.in_answer_words = self.sent2_word
             self.gen_input_words = self.sent2_input_word
             self.answer_lengths = self.sent2_length
 
@@ -277,6 +291,8 @@ class QAQuestionBatch(object):
                 self.in_answer_words = generator_output_idx
                 self.gen_input_words = generator_input_idx
                 self.answer_lengths = prediction_lengths
+
+        
 
 
     def build_phrase_vocabs(self):

@@ -80,8 +80,7 @@ class ModelGraph(object):
 
         with variable_scope.variable_scope("generator"):
             # create generator
-            ### self.generator = generator_utils.CovCopyAttenGen(self, options, word_vocab)
-            self.generator = generator_utils.CovCopyAttenGen(self, options, word_vocab, template_vocab)   ###
+            self.generator = generator_utils.CovCopyAttenGen(self, options, word_vocab, template_vocab)
             # calculate encoder_features
             self.encoder_features = self.generator.calculate_encoder_features(self.phrase_representations, self.encode_dim)
 
@@ -92,8 +91,7 @@ class ModelGraph(object):
 
                 (self.state_t, self.context_t, self.coverage_t, self.attn_dist_t, self.p_gen_t, self.ouput_t,
                     self.topk_log_probs, self.topk_ids, self.greedy_prediction, self.multinomial_prediction) = self.generator.decode_mode(
-                        ### word_vocab, options.beam_size, self.init_decoder_state, self.context_t_1, self.coverage_t_1, self.word_t,
-                        word_vocab, self.template_words, self.template_lengths, options.beam_size, self.init_decoder_state, self.context_t_1, self.coverage_t_1, self.word_t, ###
+                        word_vocab, self.question_template, self.template_len, options.beam_size, self.init_decoder_state, self.context_t_1, self.coverage_t_1, self.word_t,
                         self.phrase_representations, self.encoder_features, self.phrase_idx, self.phrase_mask)
                 # not buiding training op for this mode
                 return
@@ -104,8 +102,7 @@ class ModelGraph(object):
                 # not buiding training op for this mode
                 return
             elif mode in ('ce_train', 'evaluate', ):
-                ### self.accu, self.loss, _ = self.generator.train_mode(self.question_template, template_vocab, word_vocab, self.encode_dim, self.phrase_representations, self.encoder_features,
-                self.accu, self.loss, _ = self.generator.train_mode(word_vocab, self.template_words, self.template_lengths, self.encode_dim, self.phrase_representations, self.encoder_features, ###   
+                self.accu, self.loss, _ = self.generator.train_mode(word_vocab, self.question_template, self.template_len, self.encode_dim, self.phrase_representations, self.encoder_features,
                     self.phrase_idx, self.phrase_mask, self.init_decoder_state,
                     self.gen_input_words, self.in_answer_words, loss_weights, mode_gen='ce_train') ###
                 if mode == 'evaluate': return # not buiding training op for evaluation
@@ -175,8 +172,8 @@ class ModelGraph(object):
 
         ###
         if options.with_template:
-            self.template_words = tf.placeholder(tf.int32, [None, None], name="template_words")
-            self.template_lengths = tf.placeholder(tf.int32, [None], name="template_len") 
+            self.question_template = tf.placeholder(tf.int32, [None, None], name="question_template")
+            self.template_len = tf.placeholder(tf.int32, [None], name="template_len")
 
         # build placeholder for phrase projection layer
         if options.with_phrase_projection:
@@ -368,9 +365,10 @@ class ModelGraph(object):
             if options.with_POS: feed_dict[self.in_question_POSs] = batch.sent3_POS
             if options.with_NER: feed_dict[self.in_question_NERs] = batch.sent3_NER
 
-        if options.with_template: ###+template
-            feed_dict[self.template_lengths] = batch.template_length
-            feed_dict[self.template_words] = batch.template_word ###
+        if options.with_template: ###passage+answer+template
+            feed_dict[self.template_len] = batch.template_length   ###answer
+            feed_dict[self.question_template] = batch.question_template ###
+            
 
         if options.with_phrase_projection:
             feed_dict[self.max_phrase_size] = batch.max_phrase_size

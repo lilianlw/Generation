@@ -193,7 +193,7 @@ def run_beam_search(sess, model, vocab, batch, options):
         hidds = [state.h for state in cur_state_t_1]
         new_c = np.concatenate(cells, axis=0)
         new_h = np.concatenate(hidds, axis=0)
-        new_dec_init_state = tf.contrib.rnn.LSTMStateTuple(new_c, new_h) ###
+        new_dec_init_state = tf.nn.rnn_cell.LSTMStateTuple(new_c, new_h)
 
         feed_dict = {}
         feed_dict[model.init_decoder_state] = new_dec_init_state
@@ -210,14 +210,11 @@ def run_beam_search(sess, model, vocab, batch, options):
             if options.add_first_word_prob_for_phrase:
                 feed_dict[model.in_passage_words] = batch.sent1_word
                 feed_dict[model.phrase_starts] = batch.phrase_starts
-        if options.with_template: ###
-            feed_dict[model.template_lengths] = batch.template_length
-            feed_dict[model.template_words] = batch.template_word
 
         (state_t, context_t, coverage_t, topk_log_probs, topk_ids) = sess.run([model.state_t, model.context_t,
                                                                  model.coverage_t, model.topk_log_probs, model.topk_ids], feed_dict)
 
-        new_states = [tf.contrib.rnn.LSTMStateTuple(state_t.c[i:i+1, :], state_t.h[i:i+1, :]) for i in xrange(cur_size)] ###
+        new_states = [tf.nn.rnn_cell.LSTMStateTuple(state_t.c[i:i+1, :], state_t.h[i:i+1, :]) for i in xrange(cur_size)]
 
         # Extend each hypothesis and collect them all in all_hyps
         all_hyps = []
@@ -273,15 +270,12 @@ if __name__ == '__main__':
     out_path = args.out_path
     mode = args.mode
 
-    ### print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
+    print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
 
     # load the configuration file
     print('Loading configurations from ' + model_prefix + ".config.json")
     FLAGS = namespace_utils.load_namespace(model_prefix + ".config.json")
     FLAGS = NP2P_trainer.enrich_options(FLAGS)
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = FLAGS.gpu
-    print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
 
     # load vocabs
     print('Loading vocabs.')
@@ -298,9 +292,6 @@ if __name__ == '__main__':
     if FLAGS.with_NER:
         NER_vocab = Vocab(model_prefix + ".NER_vocab", fileformat='txt2')
         print('NER_vocab: {}'.format(NER_vocab.word_vecs.shape))
-    if FLAGS.with_template:
-        template_vocab = Vocab(model_prefix + ".template_vocab", fileformat='txt2')
-        print('template_vocab: {}'.format(template_vocab.word_vecs.shape))
 
 
     print('Loading test set.')
@@ -315,7 +306,7 @@ if __name__ == '__main__':
     print('Build DataStream ... ')
     batch_size=-1
     if mode in ['beam_search', 'beam_evaluate']: batch_size = 1
-    devDataStream = NP2P_data_stream.QADataStream(testset, word_vocab, char_vocab, POS_vocab, NER_vocab, template_vocab, options=FLAGS,
+    devDataStream = NP2P_data_stream.QADataStream(testset, word_vocab, char_vocab, POS_vocab, NER_vocab, options=FLAGS,
                  isShuffle=False, isLoop=False, isSort=True, batch_size=batch_size)
     print('Number of instances in testDataStream: {}'.format(devDataStream.get_num_instance()))
     print('Number of batches in testDataStream: {}'.format(devDataStream.get_num_batch()))
@@ -325,7 +316,7 @@ if __name__ == '__main__':
         initializer = tf.random_uniform_initializer(-0.01, 0.01)
         with tf.name_scope("Valid"):
             with tf.variable_scope("Model", reuse=False, initializer=initializer):
-                valid_graph = ModelGraph(template_vocab=template_vocab, word_vocab=word_vocab, char_vocab=char_vocab, POS_vocab=POS_vocab,
+                valid_graph = ModelGraph(word_vocab=word_vocab, char_vocab=char_vocab, POS_vocab=POS_vocab,
                                          NER_vocab=NER_vocab, options=FLAGS, mode="decode")
 
         ## remove word _embedding
@@ -337,11 +328,7 @@ if __name__ == '__main__':
         saver = tf.train.Saver(vars_)
 
         initializer = tf.global_variables_initializer()
-        ### sess = tf.Session()
-        ### sess.run(initializer)
-        config_gpu = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False) ###
-        config_gpu.gpu_options.allow_growth = True ###
-        sess = tf.Session(config=config_gpu) ###
+        sess = tf.Session()
         sess.run(initializer)
 
         saver.restore(sess, best_path) # restore the model

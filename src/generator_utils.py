@@ -26,8 +26,7 @@ def add_first_word_prob_to_atten_dists(in_passage_words, phrase_starts, vocab_di
 
 
 class CovCopyAttenGen:
-    ### def __init__(self, placeholders, options, vocab):
-    def __init__(self, placeholders, options, vocab, template_vocab): ###
+    def __init__(self, placeholders, options, vocab, template_vocab):
         self.options = options
         self.vocab = vocab
         self.cell = tf.contrib.rnn.LSTMCell(
@@ -39,7 +38,9 @@ class CovCopyAttenGen:
         with tf.variable_scope("embedding"), tf.device('/cpu:0'):
             self.embedding = tf.get_variable('word_embedding', trainable=(options.fix_word_vec==False),
                                     initializer=tf.constant(self.vocab.word_vecs), dtype=tf.float32)
-            self.template_embedding = tf.get_variable("template_embedding", initializer=tf.constant(template_vocab.word_vecs), dtype=tf.float32) ###
+            ###
+            self.template_embedding = tf.get_variable("template_embedding", initializer=tf.constant(template_vocab.word_vecs), dtype=tf.float32)
+        
 
         if options.with_phrase_projection:
             self.max_phrase_size = placeholders.max_phrase_size
@@ -83,25 +84,22 @@ class CovCopyAttenGen:
             context_vector = tf.reduce_sum(tf.expand_dims(attn_dist, axis=-1) * encoder_states, axis=1) # [batch_size, encoder_dim]
         return context_vector, attn_dist, coverage
 
-    ### def embedding_lookup(self, inputs):
-    def embedding_lookup(self, inputs, is_template=False): ###
+    def embedding_lookup(self, inputs, is_template=False):
         '''
         inputs: list of [batch_size], int32
         '''
         if type(inputs) is list:
-            ### return [tf.nn.embedding_lookup(self.embedding, x) for x in inputs]
             if not is_template:
                 return [tf.nn.embedding_lookup(self.embedding, x) for x in inputs]
             else:
                 return [tf.nn.embedding_lookup(self.template_embedding, x) for x in inputs]
         else:
-            ### return tf.nn.embedding_lookup(self.embedding, inputs)
             if not is_template:
                 return tf.nn.embedding_lookup(self.embedding, inputs)
             else:
                 return tf.nn.embedding_lookup(self.template_embedding, inputs)
 
-    def gen_question_template(self, inputs, lens=None): ### uuuzizhang
+    def gen_question_template(self, inputs, lens=None):
         '''
         # uuuzizhang
         inputs = answer_batch = in_answer_words : [batch_size, max_dec_steps]
@@ -121,8 +119,9 @@ class CovCopyAttenGen:
             question_template = tf.reduce_mean(embeddings, axis=1)
         return question_template
 
+
     def one_step_decoder(self, state_t_1, context_t_1, coverage_t_1, word_t, encoder_states, encoder_features,
-                         passage_word_idx, passage_mask, v, w_c, vocab, template_t):###
+                         passage_word_idx, passage_mask, v, w_c, vocab, question_template_repres):###
         '''
         state_t_1: Tuple of [batch_size, gen_hidden_size]
         context_t_1: [batch_size, encoder_dim]
@@ -136,12 +135,11 @@ class CovCopyAttenGen:
         '''
 
         options = self.options
-        ### x = linear([word_t, context_t_1], options.attention_vec_size, True)
-        x = linear([word_t, context_t_1, template_t], options.attention_vec_size, True)
+        x = linear([word_t, context_t_1, question_template_repres], options.attention_vec_size, True)
 
         # Run the decoder RNN cell. cell_output = decoder state
+        ###cell_output, state_t = self.cell(x, state_t_1)
         cell_output, state_t = self.cell(x, state_t_1)
-        ### cell_output, state_t = self.cell(tf.concat([x,question_template_repres],0), state_t_1)
 
         context_t, attn_dist, coverage_t = self.attention(state_t, options.attention_vec_size, encoder_states,
                                                              encoder_features, passage_mask, v, w_c=w_c,
@@ -173,8 +171,7 @@ class CovCopyAttenGen:
 
         return (state_t, context_t, coverage_t, attn_dist, p_gen, vocab_score_t)
 
-    ### def train_mode(self, question_template, template_vocab, vocab, encoder_dim, encoder_states, encoder_features, passage_word_idx, passage_mask,
-    def train_mode(self, vocab, template_words, template_lengths, encoder_dim, encoder_states, encoder_features, passage_word_idx, passage_mask, ###
+    def train_mode(self, vocab, question_template, template_len, encoder_dim, encoder_states, encoder_features, passage_word_idx, passage_mask,
             init_state, decoder_inputs, answer_batch, loss_weights, mode_gen='ce_train'): ###
         '''
         encoder_dim: int-valued
@@ -184,6 +181,8 @@ class CovCopyAttenGen:
         init_state: Tuple of [batch_size, gen_hidden_size]
         decoder_inputs: [batch_size, max_dec_steps].
         answer_batch: [batch_size, max_dec_steps]
+
+        question_template = in_answer_words : [batch_size, max_dec_steps]
         '''
         options = self.options
 
@@ -195,18 +194,16 @@ class CovCopyAttenGen:
         decoder_inputs = tf.unstack(decoder_inputs, axis=1) # max_enc_steps * [batch_size]
         answer_batch_unstack = tf.unstack(answer_batch, axis=1)
 
-        ###
-        ### self.question_template_embedding = tf.get_variable("question_template_embedding", initializer=tf.constant(template_vocab.word_vecs), dtype=tf.float32)
-        ### self.question_template_repres = tf.nn.embedding_lookup(self.question_template_embedding, question_template)
+        
 
         # initialize all the variables
         state_t_1 = init_state
         context_t_1 = tf.zeros([batch_size, encoder_dim])
         coverage_t_1 = None
 
-        ### question template 
-        ### uuuzizhang
-        template_t = self.gen_question_template(template_words, template_lengths)
+        # question template 
+        # uuuzizhang
+        question_template = self.gen_question_template(question_template, template_len)
 
         # store variables from each time-step
         coverages = []
@@ -229,14 +226,13 @@ class CovCopyAttenGen:
             wordidx_t = decoder_inputs[0] # [batch_size] int32
             for i in range(options.max_answer_len):
                 if mode_gen in ('ce_train', 'loss',): wordidx_t = decoder_inputs[i] # the wordidx_t must from decoder_inputs for phrase model
-                ### word_t = self.embedding_lookup(wordidx_t) ###
-                word_t = self.embedding_lookup(wordidx_t,False) ###
+                word_t = self.embedding_lookup(wordidx_t, False)
                 if i > 0:
                     variable_scope.get_variable_scope().reuse_variables()
 
                 (state_t, context_t, coverage_t, attn_dist_t, p_gen_t, output_t) = self.one_step_decoder(
                                 state_t_1, context_t_1, coverage_t_1, word_t, encoder_states, self.encoder_features,
-                                passage_word_idx, passage_mask, v, w_c, vocab, template_t) ###
+                                passage_word_idx, passage_mask, v, w_c, vocab, question_template) ###
                 coverages.append(coverage_t)
                 attn_dists.append(attn_dist_t)
                 p_gens.append(p_gen_t)
@@ -296,14 +292,13 @@ class CovCopyAttenGen:
             encoder_features = tf.reshape(encoder_features, [batch_size, passage_len, options.attention_vec_size])
         return encoder_features
 
-    ### def decode_mode(self, word_vocab, beam_size, state_t_1, context_t_1, coverage_t_1, word_t,
-    def decode_mode(self, word_vocab, template_words, template_lengths, beam_size, state_t_1, context_t_1, coverage_t_1, word_t,
+    def decode_mode(self, word_vocab, question_template, template_len, beam_size, state_t_1, context_t_1, coverage_t_1, word_t,
                     encoder_states, encoder_features, passage_word_idx, passage_mask):
         options = self.options
 
-        ### question template 
-        ### uuuzizhang
-        template_t = self.gen_question_template(template_words, template_lengths)
+        # question template 
+        # uuuzizhang
+        question_template = self.gen_question_template(question_template, template_len)
 
         with variable_scope.variable_scope("attention_decoder"):
             v = variable_scope.get_variable("v", [options.attention_vec_size])
@@ -318,7 +313,7 @@ class CovCopyAttenGen:
 
             (state_t, context_t, coverage_t, attn_dist_t, p_gen_t, output_t) = self.one_step_decoder(
                                 state_t_1, context_t_1, coverage_t_1, word_t_representation, encoder_states, encoder_features,
-                                passage_word_idx, passage_mask, v, w_c, word_vocab, template_t) ###
+                                passage_word_idx, passage_mask, v, w_c, word_vocab, question_template)
             vocab_scores = tf.log(output_t)
             greedy_prediction = tf.reshape(tf.argmax(output_t, 1),[-1]) # calcualte greedy
             multinomial_prediction = tf.reshape(tf.multinomial(vocab_scores, 1),[-1]) # calculate multinomial

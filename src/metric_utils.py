@@ -104,13 +104,7 @@ def my_evaluate(f1, f2, get_scores=False):
     print('ROUGE_L:',final_scores['ROUGE_L'])
     # print('CIDEr:\t',final_scores['CIDEr'])
 
-
 if __name__ == "__main__":
-    ### ref = [[u'a tiddy bear',u'a animal'],[u'<START> a number of luggage bags on a cart in a lobby .', u'<START> a cart filled with suitcases and bags .', u'<START> trolley used for transporting personal luggage to guests rooms .', u'<START> wheeled cart with luggage at lobby of commercial business .', u'<START> a luggage cart topped with lots of luggage .']]
-    ### dec = [u'some one',u' a man is standing next to a car with a suitcase .']
-    ### r = [evaluate_captions([k], [v]) for k, v in zip(ref, dec)]
-    ### print r
-
     f1 = "./data/test.result.pred"
     # f2 = "./data/test.result3.ref"
     f2 = "./test.result.ref"

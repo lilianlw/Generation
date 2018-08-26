@@ -143,9 +143,6 @@ def main(_):
         if FLAGS.with_NER:
             NER_vocab = Vocab(path_prefix + ".NER_vocab", fileformat='txt2')
             print('NER_vocab: {}'.format(NER_vocab.word_vecs.shape))
-        if FLAGS.with_template:
-            template_vocab = Vocab(path_prefix + ".template_vocab", fileformat='txt2')
-            print('template_vocab: {}'.format(template_vocab.word_vecs.shape))
     else:
         print('Collecting vocabs.')
         (allWords, allChars, allPOSs, allNERs, allTemplateWords) = NP2P_data_stream.collect_vocabs(trainset) ###
@@ -166,17 +163,16 @@ def main(_):
             NER_vocab = Vocab(voc=allNERs, dim=FLAGS.NER_dim, fileformat='build')
             NER_vocab.dump_to_txt2(path_prefix + ".NER_vocab")
         if FLAGS.with_template:  ###
-            template_vocab = Vocab(voc=allTemplateWords, dim=FLAGS.template_dim, fileformat='build')
-            template_vocab.dump_to_txt2(path_prefix + ".template_vocab")
+            template_vocab = Vocab(voc=allTemplateWords, dim=len(allTemplateWords), fileformat='build')
 
     print('word vocab size {}'.format(word_vocab.vocab_size)) ##69979
     sys.stdout.flush()
 
     print('Build DataStream ... ')
-    trainDataStream = NP2P_data_stream.QADataStream(trainset, word_vocab, char_vocab, POS_vocab, NER_vocab, template_vocab, options=FLAGS, ###
+    trainDataStream = NP2P_data_stream.QADataStream(trainset, word_vocab, char_vocab, POS_vocab, NER_vocab, template_vocab, options=FLAGS,
                  isShuffle=True, isLoop=True, isSort=True)
 
-    devDataStream = NP2P_data_stream.QADataStream(testset, word_vocab, char_vocab, POS_vocab, NER_vocab, template_vocab, options=FLAGS,   ###
+    devDataStream = NP2P_data_stream.QADataStream(testset, word_vocab, char_vocab, POS_vocab, NER_vocab, template_vocab, options=FLAGS,
                  isShuffle=False, isLoop=False, isSort=True)
     print('Number of instances in trainDataStream: {}'.format(trainDataStream.get_num_instance())) ##75498
     print('Number of instances in devDataStream: {}'.format(devDataStream.get_num_instance())) ##17934
@@ -205,8 +201,6 @@ def main(_):
 
         with tf.name_scope("Valid"):
             with tf.variable_scope("Model", reuse=True, initializer=initializer):
-                ### valid_graph = ModelGraph(word_vocab=word_vocab, char_vocab=char_vocab, POS_vocab=POS_vocab,
-                ###                         NER_vocab=NER_vocab, options=FLAGS, mode=valid_mode)
                 valid_graph = ModelGraph(template_vocab=template_vocab, word_vocab=word_vocab, char_vocab=char_vocab, POS_vocab=POS_vocab,
                                          NER_vocab=NER_vocab, options=FLAGS, mode=valid_mode) ###
 
@@ -219,10 +213,10 @@ def main(_):
             vars_[var.name.split(":")[0]] = var
         saver = tf.train.Saver(vars_)
 
-        ### sess = tf.Session()
-        config_gpu = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False) ###
-        config_gpu.gpu_options.allow_growth = True ###
-        sess = tf.Session(config=config_gpu) ###
+        config_gpu = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
+        config_gpu.gpu_options.allow_growth = True
+        sess = tf.Session(config=config_gpu)
+        # sess = tf.Session()
         sess.run(initializer)
         if has_pretrained_model:
             print("Restoring model from " + best_path)
@@ -263,8 +257,7 @@ def main(_):
 
 
             # Save a checkpoint and evaluate the model periodically.
-            ### if (step + 1) % trainDataStream.get_num_batch() == 0 or (step + 1) == max_steps:
-            if (step + 1) % trainDataStream.get_num_batch() == 0 or (step + 1) == max_steps or (best_accu > 0.6 and step % 100 == 0) or (best_accu > 0.7 and step % 10 == 0): ###
+            if (step + 1) % trainDataStream.get_num_batch() == 0 or (step + 1) == max_steps or (best_accu > 0.6 and step % 100 == 0) or (best_accu > 0.7 and step % 10 == 0):
                 print()
                 duration = time.time() - start_time
                 print('Step %d: loss = %.2f (%.3f sec)' % (step, total_loss, duration))
@@ -339,9 +332,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str, help='Configuration file.')
 
-    #os.environ["CUDA_VISIBLE_DEVICES"] = "2,4,5"
-    #print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
+    
     FLAGS, unparsed = parser.parse_known_args()
+
 
     if FLAGS.config_path is not None:
         print('Loading the configuration from ' + FLAGS.config_path)
