@@ -111,7 +111,7 @@ if __name__ == "__main__":
     ### r = [evaluate_captions([k], [v]) for k, v in zip(ref, dec)]
     ### print r
 
-    f1 = "./data/test.result.pred"
+    f1 = "./test.result.pred"
     # f2 = "./data/test.result3.ref"
     f2 = "./test.result.ref"
     my_evaluate(f1, f2)

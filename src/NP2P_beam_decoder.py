@@ -176,6 +176,10 @@ def run_beam_search(sess, model, vocab, batch, options):
         cur_encoder_features = np.tile(encoder_features, (cur_size, 1, 1)) # [batch_size,passage_len, options.attention_vec_size]
         cur_phrase_idx = np.tile(phrase_idx, (cur_size, 1)) # [batch_size, passage_len]
         cur_phrase_mask = np.tile(phrase_mask, (cur_size, 1)) # [batch_size, passage_len]
+        ###uuuzi
+        cur_template_words = np.tile(batch.template_word,(cur_size,1))
+        cur_template_lengths = np.tile(batch.template_word,(cur_size))
+
         cur_state_t_1 = [] # [2, gen_steps]
         cur_context_t_1 = [] # [batch_size, encoder_dim]
         cur_coverage_t_1 = [] # [batch_size, passage_len]
@@ -211,8 +215,8 @@ def run_beam_search(sess, model, vocab, batch, options):
                 feed_dict[model.in_passage_words] = batch.sent1_word
                 feed_dict[model.phrase_starts] = batch.phrase_starts
         if options.with_template: ###
-            feed_dict[model.template_lengths] = batch.template_length
-            feed_dict[model.template_words] = batch.template_word
+            feed_dict[model.template_lengths] = cur_template_lengths
+            feed_dict[model.template_words] = cur_template_words
 
         (state_t, context_t, coverage_t, topk_log_probs, topk_ids) = sess.run([model.state_t, model.context_t,
                                                                  model.coverage_t, model.topk_log_probs, model.topk_ids], feed_dict)

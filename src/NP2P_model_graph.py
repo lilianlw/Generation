@@ -176,7 +176,7 @@ class ModelGraph(object):
         ###
         if options.with_template:
             self.template_words = tf.placeholder(tf.int32, [None, None], name="template_words")
-            self.template_lengths = tf.placeholder(tf.int32, [None], name="template_len") 
+            self.template_lengths = tf.placeholder(tf.int32, [None], name="template_lengths") 
 
         # build placeholder for phrase projection layer
         if options.with_phrase_projection:
