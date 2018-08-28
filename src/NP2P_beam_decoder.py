@@ -15,6 +15,10 @@ import re
 
 import tensorflow as tf
 import NP2P_trainer
+
+import json
+import math
+
 tf.logging.set_verbosity(tf.logging.ERROR) # DEBUG, INFO, WARN, ERROR, and FATAL
 
 def search(sess, model, vocab, batch, options, decode_mode='greedy'):
@@ -325,12 +329,14 @@ if __name__ == '__main__':
         return template
 
     word_vecs_dict = {}
-    with open( FLAGS.word_vec_path,"r",encoding="utf-8") as vf:
+    word_dim = 0
+    with open( FLAGS.word_vec_path,"r") as vf:
         lines = vf.readlines()
         for line in lines:
             word = line.strip().split('\t')[1]
             vecs = line.strip().split('\t')[2].split(' ')
             word_vecs_dict[word] = vecs
+        word_dim = len(vecs)
 
     paragraphs = {}
     answers = {}
@@ -339,7 +345,7 @@ if __name__ == '__main__':
     answer_vecs_dict = {}
     paragraph_vecs_dict = {}
 
-    with open(FLAGS.train_path,"r",encoding="utf-8") as f:
+    with open(FLAGS.train_path,"r") as f:
         data = json.load(f) #list len(data):75722
         #data[0] #dict_keys(['text3', 'text1', 'text2', 'annotation3', 'id', 'annotation2', 'annotation1'])  id,paragraph,question,answer
         id_num = 0
@@ -351,7 +357,7 @@ if __name__ == '__main__':
             answers[_id] = item["annotation3"]
             ## answer vecs
             m = 0
-            vecs = np.zeros(( FLAGS.template_dim ),np.float)
+            vecs = np.zeros(( word_dim ),np.float)
             for tok in item["annotation3"]["toks"].strip().split(" "):
                 if tok in word_vecs_dict:
                     vecs = vecs + np.array(word_vecs_dict[tok]).astype(np.float)
@@ -361,7 +367,7 @@ if __name__ == '__main__':
             answer_vecs_dict[_id] = vecs.tolist()
             ### paragraph vecs
             m = 0
-            vecs = np.zeros(( FLAGS.template_dim ),np.float)
+            vecs = np.zeros(( word_dim ),np.float)
             for tok in item["annotation1"]["toks"].strip().split(" "):
                 if tok in word_vecs_dict:
                     vecs = vecs + np.array(word_vecs_dict[tok]).astype(np.float)
