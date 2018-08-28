@@ -152,7 +152,7 @@ def main(_):
                     m = m + 1
                     if m!=0:
                         vecs = vecs / m
-            answer_vecs_dict[_id] = vecs
+            answer_vecs_dict[_id] = vecs.tolist()
             ### paragraph vecs
             m = 0
             vecs = np.zeros(( FLAGS.template_dim ),np.float)
@@ -162,7 +162,7 @@ def main(_):
                     m = m + 1
                     if m!=0:
                         vecs = vecs / m
-            paragraph_vecs_dict[_id] = vecs
+            paragraph_vecs_dict[_id] = vecs.tolist()
     def answer_dict_pattern(annotation):
         tokens = annotation["toks"].strip().split(" ")
         pos_tags = annotation["POSs"].strip().split(" ")
@@ -229,7 +229,7 @@ def main(_):
                 m = m + 1
         if m!=0:
             vecs = vecs / m
-        vecs_candidate = answer_vecs_dict.get(_id)
+        vecs_candidate = np.array(answer_vecs_dict.get(_id)).astype(np.float)
         score = cos_sim(vecs, vecs_candidate)
         return score
 
@@ -243,7 +243,7 @@ def main(_):
                 m = m + 1
         if m!=0:
             vecs = vecs / m
-        vecs_candidate = paragraph_vecs_dict.get(_id)
+        vecs_candidate = np.array(paragraph_vecs_dict.get(_id)).astype(np.float)
         score = cos_sim(vecs, vecs_candidate)
         return score     
 
