@@ -100,6 +100,153 @@ def main(_):
     # save configuration
     namespace_utils.save_namespace(FLAGS, path_prefix + ".config.json")
 
+    # template calculation preparation
+    interrogative_words = ["which","that","what","who","whose","how","where","times","many","long","much","often","year"]
+    def question_dict_pattern(annotation):
+        tokens = annotation["toks"].strip().split(" ")
+        pos_tags = annotation["POSs"].strip().split(" ")
+        negs = annotation['NERs'].strip().split(" ")
+        if len(tokens)!=len(pos_tags):
+            print("mismatch length!")
+        template = []
+        for i in range(len(tokens)):
+            if tokens[i].lower() in interrogative_words:
+                template.append(tokens[i])
+            elif negs[i] != "O":
+                template.append(negs[i])
+            else:
+                template.append(pos_tags[i])
+        return template
+
+    word_vecs_dict = {}
+    with open( FLAGS.word_vec_path,"r",encoding="utf-8") as vf:
+        lines = vf.readlines()
+        for line in lines:
+            word = line.strip().split('\t')[1]
+            vecs = line.strip().split('\t')[2].split(' ')
+            word_vecs_dict[word] = vecs
+
+    paragraphs = {}
+    answers = {}
+    questions = {}
+    questions_templates = {}
+    answer_vecs_dict = {}
+    paragraph_vecs_dict = {}
+
+    with open(FLAGS.train_path,"r",encoding="utf-8") as f:
+        data = json.load(f) #list len(data):75722
+        #data[0] #dict_keys(['text3', 'text1', 'text2', 'annotation3', 'id', 'annotation2', 'annotation1'])  id,paragraph,question,answer
+        id_num = 0
+        for item in data:
+            _id = id_num + 1 #item["id"]
+            paragraphs[_id] = item["annotation1"] #item["text1"]
+            questions[_id] = item["annotation2"]
+            questions_templates[_id] = question_dict_pattern(item["annotation2"])    #question_template[_id] = question_pattern(item["text2"])              
+            answers[_id] = item["annotation3"]
+            ## answer vecs
+            m = 0
+            vecs = np.zeros(( FLAGS.template_dim ),np.float)
+            for tok in item["annotation3"]["toks"].strip().split(" "):
+                if tok in word_vecs_dict:
+                    vecs = vecs + np.array(word_vecs_dict[tok]).astype(np.float)
+                    m = m + 1
+                    if m!=0:
+                        vecs = vecs / m
+            answer_vecs_dict[_id] = vecs
+            ### paragraph vecs
+            m = 0
+            vecs = np.zeros(( FLAGS.template_dim ),np.float)
+            for tok in item["annotation1"]["toks"].strip().split(" "):
+                if tok in word_vecs_dict:
+                    vecs = vecs + np.array(word_vecs_dict[tok]).astype(np.float)
+                    m = m + 1
+                    if m!=0:
+                        vecs = vecs / m
+            paragraph_vecs_dict[_id] = vecs
+    def answer_dict_pattern(annotation):
+        tokens = annotation["toks"].strip().split(" ")
+        pos_tags = annotation["POSs"].strip().split(" ")
+        negs = annotation['NERs'].strip().split(" ")
+        if len(tokens)!=len(pos_tags):
+            print("mismatch length!")
+        template = []
+        for i in range(len(tokens)):
+            if ( pos_tags[i]=="CD" and re.match(r'\d{4}', tokens[i]) is not None and len(tokens[i])==4 ): #re.match(r'\d{4}', tokens[i]).span()
+                template.append("YEAR")
+            elif negs[i] != "O":
+                template.append(negs[i])
+            else:
+                template.append(pos_tags[i])
+        return template
+    def cosine_similarity(v1,v2):
+        "compute cosine similarity of v1 to v2: (v1 dot v2)/{||v1||*||v2||)"
+        sumxx, sumxy, sumyy = 0, 0, 0
+        for i in range(len(v1)):
+            x = v1[i]; y = v2[i]
+            sumxx += x*x
+            sumyy += y*y
+            sumxy += x*y
+        return sumxy/math.sqrt(sumxx*sumyy)
+    def bow_similarity(annotation, answer_annotation):
+        #pos = annotation["POSs"].split(" ")
+        template_candidate = answer_dict_pattern(annotation)
+        template_answer = answer_dict_pattern(answer_annotation)
+        vocab = {}
+        cnt = 0
+        for item in (template_candidate+template_answer):
+            if item not in vocab:
+                vocab[item] = cnt
+                cnt = cnt + 1
+        answer_vec = []
+        vec = []
+        for i in range(len(vocab)):
+            answer_vec.append(0)
+            vec.append(0)
+        for item in template_candidate:
+            answer_vec[vocab[item]] += 1
+        for item in template_answer:
+            vec[vocab[item]] += 1
+        score = cosine_similarity(answer_vec, vec)    
+        return score
+    def cos_sim(a, b):
+        """Takes 2 vectors a, b and returns the cosine similarity according 
+        to the definition of the dot product
+        """
+        dot_product = np.dot(a, b)
+        norm_a = np.linalg.norm(a)
+        norm_b = np.linalg.norm(b)
+        consine_similarity = 0
+        if norm_a!=0 and norm_b!=0 :
+            consine_similarity = dot_product / (norm_a * norm_b)
+        return consine_similarity
+    def semantic_similarity_answer(_id, annotation):
+        tokens = annotation["toks"].strip().split(" ")
+        vecs = np.zeros((dim),np.float)
+        m = 0
+        for tok in tokens:
+            if tok in word_vecs_dict:
+                vecs = vecs + np.array(word_vecs_dict[tok]).astype(np.float)
+                m = m + 1
+        if m!=0:
+            vecs = vecs / m
+        vecs_candidate = answer_vecs_dict.get(_id)
+        score = cos_sim(vecs, vecs_candidate)
+        return score
+
+    def semantic_similarity_paragraph(_id, annotation):
+        tokens = annotation["toks"].strip().split(" ")
+        vecs = np.zeros((dim),np.float)
+        m = 0
+        for tok in tokens:
+            if tok in word_vecs_dict:
+                vecs = vecs + np.array(word_vecs_dict[tok]).astype(np.float)
+                m = m + 1
+        if m!=0:
+            vecs = vecs / m
+        vecs_candidate = paragraph_vecs_dict.get(_id)
+        score = cos_sim(vecs, vecs_candidate)
+        return score     
+
     print('Loading train set.')
     if FLAGS.infile_format == 'fof':
         trainset, train_ans_len = NP2P_data_stream.read_generation_datasets_from_fof(FLAGS.train_path, isLower=FLAGS.isLower)
@@ -117,6 +264,25 @@ def main(_):
     else:
         testset, test_ans_len = NP2P_data_stream.read_all_GQA_questions(FLAGS.test_path, isLower=FLAGS.isLower, switch=FLAGS.switch_qa)
     print('Number of test samples: {}'.format(len(testset))) ##17934
+
+
+    if FLAGS.with_template:
+        if FLAGS.template_train_retrieval:
+            for (paragraph, question, answer) in (trainset+testset):
+                answer_annotation = anwer.annotation
+                paragraph_annotation = paragraph_annotation
+                template_answer = answer_dict_pattern(answer_annotation)
+                score_dict = {}
+                for _id in answers.keys():
+                    score_dict[_id] = bow_similarity(answers[_id],answer_annotation) + semantic_similarity_answer(_id,answer_annotation) + semantic_similarity_paragraph(_id,paragraph_annotation)
+                score_list = sorted(score_dict.items(), key = lambda x: x[1], reverse=True)
+                question.template = ' '.join(questions_templates[_id])
+                question.template_length = len(questions_templates[_id])
+        else:
+            for (paragraph, question, answer) in (trainset+testset):
+                question.template = ' '.join(question_dict_pattern(question.annotation))
+                question.template_length = len(question_dict_pattern(question.annotation))
+
 
     max_actual_len = max(train_ans_len, test_ans_len) ##61
     print('Max answer length: {}, truncated to {}'.format(max_actual_len, FLAGS.max_answer_len))

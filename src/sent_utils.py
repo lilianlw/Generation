@@ -33,6 +33,7 @@ class QASentence(object):
 
         self.question_template = "" ###
         self.template_length = 0
+        """
         if is_question==True :   ###
             interrogative_words = ["which","that","what","who","whose","how","where"]
             tokens = self.tokText.strip().split(" ")
@@ -48,6 +49,7 @@ class QASentence(object):
                     template.append(pos_tags[i])
             self.question_template = ' '.join(template)
             self.template_length = len(template)
+        """
 
     def TokSpan2RawSpan(self, startTokID, endTokID):
         start = self.startPositions[startTokID]
