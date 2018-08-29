@@ -14,6 +14,7 @@ from NP2P_model_graph import ModelGraph
 
 import json
 import math
+import re
 
 FLAGS = None
 import tensorflow as tf
@@ -226,7 +227,7 @@ def main(_):
         return consine_similarity
     def semantic_similarity_answer(_id, annotation):
         tokens = annotation["toks"].strip().split(" ")
-        vecs = np.zeros((dim),np.float)
+        vecs = np.zeros((word_dim),np.float)
         m = 0
         for tok in tokens:
             if tok in word_vecs_dict:
@@ -240,7 +241,7 @@ def main(_):
 
     def semantic_similarity_paragraph(_id, annotation):
         tokens = annotation["toks"].strip().split(" ")
-        vecs = np.zeros((dim),np.float)
+        vecs = np.zeros((word_dim),np.float)
         m = 0
         for tok in tokens:
             if tok in word_vecs_dict:
@@ -274,18 +275,18 @@ def main(_):
     if FLAGS.with_template:
         if FLAGS.template_train_retrieval:
             for (paragraph, question, answer) in (trainset+testset):
-                answer_annotation = anwer.annotation
-                paragraph_annotation = paragraph_annotation
+                answer_annotation = answer.annotation
+                paragraph_annotation = paragraph.annotation
                 template_answer = answer_dict_pattern(answer_annotation)
                 score_dict = {}
                 for _id in answers.keys():
                     score_dict[_id] = bow_similarity(answers[_id],answer_annotation) + semantic_similarity_answer(_id,answer_annotation) + semantic_similarity_paragraph(_id,paragraph_annotation)
                 score_list = sorted(score_dict.items(), key = lambda x: x[1], reverse=True)
-                question.template = ' '.join(questions_templates[_id])
+                question.question_template = ' '.join(questions_templates[_id])
                 question.template_length = len(questions_templates[_id])
         else:
             for (paragraph, question, answer) in (trainset+testset):
-                question.template = ' '.join(question_dict_pattern(question.annotation))
+                question.question_template = ' '.join(question_dict_pattern(question.annotation))
                 question.template_length = len(question_dict_pattern(question.annotation))
 
 

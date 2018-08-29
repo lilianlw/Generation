@@ -471,8 +471,8 @@ if __name__ == '__main__':
     if FLAGS.with_template:
         if FLAGS.template_train_retrieval:
             for (paragraph, question, answer) in testset:
-                answer_annotation = anwer.annotation
-                paragraph_annotation = paragraph_annotation
+                answer_annotation = answer.annotation
+                paragraph_annotation = paragraph.annotation
                 template_answer = answer_dict_pattern(answer_annotation)
                 score_dict = {}
                 for _id in answers.keys():

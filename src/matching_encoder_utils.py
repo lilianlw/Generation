@@ -4,7 +4,6 @@ from tensorflow.python.ops import rnn
 
 class MatchingEncoder(object):
     def __init__(self, placeholders, options, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None):
-    ### placeholders指传入的ModelGraph类本身self
         self.options = options
 
         self.word_vocab = word_vocab
